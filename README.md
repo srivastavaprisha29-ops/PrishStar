@@ -34,15 +34,33 @@ pnpm run dev
 
 Apply the initial migration once per local database. Future schema changes require a new migration (`pnpm run db:generate`). Never edit an already applied migration. Local databases and uploads are separate from production.
 
-## Hosting and access
+## Deploy from GitHub to your Cloudflare account
 
-The current deployment uses ChatGPT Sites with a Workers server, D1, and R2. `.openai/hosting.json` retains the existing Site identity and storage binding names. The GitHub repository is source control; it does not contain the production database or uploaded photos.
+The `Deploy PrishStar to Cloudflare` GitHub Actions workflow deploys this application without installing the Cloudflare GitHub App. It runs on pushes to main when credentials are configured, and can also be started manually.
 
-GitHub Pages cannot execute this app's server routes. A static export would lose its current persistence behavior.
+1. In Cloudflare, enable R2 for the account if you have not already done so. Choose a Workers subdomain if your account has none. Any billing setup remains your choice; the workflow does not enable R2 billing for you.
+2. Create a scoped Cloudflare API token for this account with **Workers Scripts: Edit**, **D1: Edit**, **Workers R2 Storage: Edit**, and **Account Settings: Read** permissions. Do not use a Global API Key.
+3. In this repository, open **Settings → Secrets and variables → Actions → New repository secret** and add:
 
-The app has a public read-only visitor view and server-enforced owner editing. Sites supplies authenticated identity headers. The runtime secret `PRISHSTAR_OWNER_EMAIL` identifies the owner; it must be set by the hosting administrator and is never committed. Missing owner configuration denies all writes. Existing records default to private. Owners explicitly publish records from the entry form or entry controls. Anonymous media retrieval requires a live published entry linking that media.
+| Secret | Value |
+| --- | --- |
+| `CLOUDFLARE_API_TOKEN` | Your scoped Cloudflare API token |
+| `CLOUDFLARE_ACCOUNT_ID` | Your 32-character Cloudflare account ID |
+| `PRISHSTAR_ADMIN_PASSWORD` | A unique, randomly generated owner password of at least 20 characters |
 
-The `/signin-with-chatgpt` route is provided by Sites. Moving this application to independently managed hosting requires replacing that identity integration with trusted authentication; never trust client-supplied identity headers on a standalone server. Do not deploy the app publicly on another host without that change.
+4. Open **Actions → Deploy PrishStar to Cloudflare → Run workflow** on `main`.
+5. When deployment completes successfully, the workflow summary provides the verified `workers.dev` live URL. Share that URL and the GitHub repository URL on LinkedIn. No live URL exists for this deployment until that run succeeds.
+6. Visit `/owner` on your new live site and use the owner password to sign in. Check **Publish to visitors** when saving an entry, or use its **publish** control afterward. Existing private entries remain private.
+
+The workflow creates or reuses `prishstar-db` (D1) and `prishstar-media` (R2), applies migrations, builds the standalone Worker, and deploys it. It then installs the owner password as a Cloudflare runtime secret and checks the public homepage, reader role, and blocked anonymous writes. Run summaries do not contain the token or password. Keep the token and password in encrypted GitHub secrets only; never paste them into chat or commit them.
+
+This creates a separate database and media bucket in your account. Existing entries and uploads on the original Sites host are not migrated automatically. The original Sites integration remains supported by the default Vite configuration, while `vite.cloudflare.config.ts` produces the independent Cloudflare build. GitHub Pages cannot run these server routes.
+
+## Access control
+
+Public visitors can only retrieve explicitly published, unexpired entries and their associated media. The standalone host uses an eight-hour signed owner session cookie with Secure, HttpOnly, and SameSite=Strict flags, server-side authorization, same-origin mutation checks, and login attempt limits. Changing the owner password invalidates existing sessions. Standalone deployments ignore incoming ChatGPT identity headers.
+
+The original Sites host can continue to use its hosting-managed identity with the `PRISHSTAR_OWNER_EMAIL` runtime secret. No owner credentials are committed to this repository.
 
 ## Data and secrets
 

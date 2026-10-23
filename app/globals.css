@@ -49,3 +49,4 @@ footer{border-color:#ff83df80;color:#e2b6d2;font-family:monospace}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}button,a{transition:none}}
 
 .reader .owner-control,.reader .panel>header button,.reader .empty button,.reader .add-name,.reader .identity>.textbtn,.reader .portrait>small,.reader .photo-placeholder small{display:none!important}.reader .portrait,.reader .photo-placeholder{cursor:default}.publish-option{border:1px solid #824168;padding:12px}.publish-option input{display:inline;width:auto;margin:0 8px 0 0;accent-color:#ff83df}.publish-option small{padding-left:24px}.owner-signin{font-size:10px;color:#edb4d8}.entry-meta .textbtn{margin-left:8px}.entry-meta .textbtn:first-of-type{margin-left:auto}
+.owner-login{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:30px;background:#000 url('/starfield.svg') center / 1440px auto}.owner-login .dialog{max-width:480px;width:100%}

@@ -1,0 +1,5 @@
+'use client';
+import {useState} from 'react';
+export default function OwnerLogin(){const [error,setError]=useState(''),[busy,setBusy]=useState(false);
+async function login(e:React.FormEvent<HTMLFormElement>){e.preventDefault();setBusy(true);setError('');const f=new FormData(e.currentTarget);try{const r=await fetch('/api/owner',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:f.get('password')})});if(!r.ok)throw Error(await r.text());window.location.assign('/')}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
+return <main className="owner-login"><section className="dialog"><header><h2>PrishStar · owner sign in</h2></header><form onSubmit={login}><label>Owner password<input type="password" name="password" autoComplete="current-password" required autoFocus/></label>{error&&<p role="alert" className="alert">{error}</p>}<button className="primary" disabled={busy}>{busy?'Signing in…':'Sign in'}</button><p style={{marginTop:16}}><a href="/">Back to PrishStar ↗</a></p></form></section></main>}
