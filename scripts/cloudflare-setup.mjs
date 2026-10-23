@@ -1,7 +1,8 @@
 import {writeFileSync} from 'node:fs';
-const account=process.env.CLOUDFLARE_ACCOUNT_ID;
-const token=process.env.CLOUDFLARE_API_TOKEN;
-if(!account||!/^[a-f0-9]{32}$/i.test(account)||!token)throw new Error('Set CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN in GitHub Actions secrets.');
+const account=(process.env.CLOUDFLARE_ACCOUNT_ID||'').trim();
+const token=(process.env.CLOUDFLARE_API_TOKEN||'').trim();
+if(!/^[a-f0-9]{32}$/i.test(account))throw new Error('CLOUDFLARE_ACCOUNT_ID must be the 32-character hexadecimal Account ID copied from your Cloudflare account. Update that GitHub repository secret, then rerun deployment.');
+if(!token)throw new Error('CLOUDFLARE_API_TOKEN is missing.');
 if((process.env.PRISHSTAR_ADMIN_PASSWORD||'').length<20)throw new Error('PRISHSTAR_ADMIN_PASSWORD must contain at least 20 characters.');
 async function api(path,options={}){
  const r=await fetch('https://api.cloudflare.com/client/v4/accounts/'+account+path,{...options,headers:{Authorization:'Bearer '+token,'Content-Type':'application/json',...options.headers}});
