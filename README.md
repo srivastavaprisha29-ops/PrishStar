@@ -40,7 +40,9 @@ The current deployment uses ChatGPT Sites with a Workers server, D1, and R2. `.o
 
 GitHub Pages cannot execute this app's server routes. A static export would lose its current persistence behavior.
 
-The current app relies on the hosting layer's owner-only access. Before allowing public visitors or moving to a different host, implement server-enforced owner authentication for writes, a read-only visitor experience, and explicit publication controls for records. Do not expose the current write endpoints publicly. A GitHub repository's visibility does not change the deployed app's audience.
+The app has a public read-only visitor view and server-enforced owner editing. Sites supplies authenticated identity headers. The runtime secret `PRISHSTAR_OWNER_EMAIL` identifies the owner; it must be set by the hosting administrator and is never committed. Missing owner configuration denies all writes. Existing records default to private. Owners explicitly publish records from the entry form or entry controls. Anonymous media retrieval requires a live published entry linking that media.
+
+The `/signin-with-chatgpt` route is provided by Sites. Moving this application to independently managed hosting requires replacing that identity integration with trusted authentication; never trust client-supplied identity headers on a standalone server. Do not deploy the app publicly on another host without that change.
 
 ## Data and secrets
 
