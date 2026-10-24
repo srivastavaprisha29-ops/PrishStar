@@ -6,7 +6,7 @@ import {lifetime,isLive} from '../../../lib/lifetime';
 import {getDb} from '../../../db';
 import {entries} from '../../../db/schema';
 const MAX = 95 * 1024 * 1024;
-const TYPES = new Set(['image/jpeg','image/png','image/webp','image/gif','video/mp4','video/webm','video/quicktime','video/ogg']);
+const TYPES = new Set(['image/jpeg','image/png','image/webp','image/gif','video/mp4','video/webm','video/quicktime','video/ogg','audio/mpeg','audio/mp4','audio/x-m4a','audio/aac','audio/wav','audio/x-wav','audio/ogg','audio/webm','audio/flac']);
 export async function POST(req:Request){
   const denied=await rejectWrite(req);if(denied)return denied;
   const type=(req.headers.get('content-type')||'').split(';')[0];
@@ -22,10 +22,10 @@ export async function POST(req:Request){
 }
 export async function GET(req:Request){
   const id=new URL(req.url).searchParams.get('id');if(!id)return new Response(null,{status:404});
-  if(!await isOwner(req)){const rows=await getDb().select().from(entries);const visible=rows.some(x=>{try{return JSON.parse(x.extra).image==='/api/media?id='+id&&published(x.extra)&&isLive(x.kind,x.created)}catch{return false}});if(!visible)return new Response(null,{status:404,headers:{'Cache-Control':'no-store'}});}
+  if(!await isOwner(req)){const rows=await getDb().select().from(entries);const visible=rows.some(x=>{try{return [JSON.parse(x.extra).image,JSON.parse(x.extra).poster,JSON.parse(x.extra).audio].includes('/api/media?id='+id)&&published(x.extra)&&isLive(x.kind,x.created)}catch{return false}});if(!visible)return new Response(null,{status:404,headers:{'Cache-Control':'no-store'}});}
   const head=await env.BUCKET.head(id);if(!head)return new Response(null,{status:404});
   let expiry=Number(head.customMetadata?.expiresAt||0);
-  if(!head.customMetadata?.kind){const rows=await getDb().select().from(entries);const record=rows.find(x=>{try{return JSON.parse(x.extra).image==='/api/media?id='+id}catch{return false}});if(record&&!isLive(record.kind,record.created))return new Response('This upload has expired.',{status:410,headers:{'Cache-Control':'no-store'}});}
+  if(!head.customMetadata?.kind){const rows=await getDb().select().from(entries);const record=rows.find(x=>{try{return [JSON.parse(x.extra).image,JSON.parse(x.extra).poster,JSON.parse(x.extra).audio].includes('/api/media?id='+id)}catch{return false}});if(record&&!isLive(record.kind,record.created))return new Response('This upload has expired.',{status:410,headers:{'Cache-Control':'no-store'}});}
   if(expiry&&Date.now()>=expiry)return new Response('This upload has expired.',{status:410,headers:{'Cache-Control':'no-store'}});
   const object=await env.BUCKET.get(id,{range:req.headers});if(!object)return new Response(null,{status:404});
   const headers=new Headers({'Content-Type':object.httpMetadata?.contentType||'application/octet-stream','Cache-Control':'private, no-store','Accept-Ranges':'bytes','ETag':object.httpEtag,'X-Content-Type-Options':'nosniff'});

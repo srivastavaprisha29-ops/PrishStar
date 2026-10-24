@@ -1,0 +1,12 @@
+'use client';
+import {useEffect,useRef,useState} from 'react';
+export type MediaDetails={image?:string;mediaType?:string;poster?:string;audio?:string;audioName?:string;audioStart?:number;audioEnd?:number;musicVolume?:number;videoVolume?:number};
+export default function PostMedia({media,title}:{media:MediaDetails;title:string}){
+ const video=useRef<HTMLVideoElement>(null),audio=useRef<HTMLAudioElement>(null);const [playing,setPlaying]=useState(false),[error,setError]=useState('');
+ const start=Number(media.audioStart)||0,end=Number(media.audioEnd)||0;
+ function sync(){const a=audio.current,v=video.current;if(!a)return;const length=end>start?end-start:0;const offset=v?.currentTime||0;const wanted=start+(length?offset%length:offset);if(Math.abs(a.currentTime-wanted)>.3)a.currentTime=wanted;}
+ async function play(){setError('');sync();try{if(audio.current)await audio.current.play();setPlaying(true)}catch{video.current?.pause();setPlaying(false);setError('Tap play to enable the music.')}}
+ function pause(){audio.current?.pause();setPlaying(false)}
+ useEffect(()=>{if(video.current)video.current.volume=media.videoVolume??1;if(audio.current)audio.current.volume=media.musicVolume??.7;return()=>{audio.current?.pause()}},[media.image,media.audio,media.musicVolume,media.videoVolume]);
+ return <div className="post-media">{media.image&&(media.mediaType?.startsWith('video/')?<video ref={video} controls playsInline preload="metadata" poster={media.poster} src={media.image+(media.poster?'':'#t=0.1')} aria-label={title} onPlay={play} onPause={pause} onEnded={pause} onSeeking={sync} onTimeUpdate={sync}/>:<img src={media.image} alt={title}/>)}{media.audio&&<><audio ref={audio} src={media.audio} preload="metadata" onLoadedMetadata={()=>{if(audio.current)audio.current.currentTime=start}} onTimeUpdate={()=>{const a=audio.current;if(a&&end>start&&(a.currentTime>=end||a.currentTime<start)){a.currentTime=start;if(playing)a.play().catch(()=>setError('Tap play to resume music.'))}}} onEnded={()=>{const a=audio.current;if(a&&playing){a.currentTime=start;a.play().catch(()=>setPlaying(false))}}}/><div className="music-bar"><button type="button" onClick={()=>{if(playing){video.current?.pause();pause()}else if(video.current)video.current.play().catch(()=>setError('This video format cannot be played in this browser.'));else play()}}>{playing?'❚❚ Pause':'▶ Play'} music</button><span>♫ {media.audioName||'Soundtrack'}</span></div></>}{error&&<small role="status">{error}</small>}</div>
+}

@@ -37,6 +37,8 @@ Stories and feed posts publish on submission. Owners can unpublish or delete ent
 - Upload limit: 95 MB per file; no application-level video duration limit.
 - Formats: JPEG, PNG, WebP, GIF, MP4, WebM, MOV, Ogg video.
 - Playback depends on browser codec support.
+- Video uploads include a local preview and selectable cover frame.
+- Soundtracks support audio upload, start/end selection, and independent music/video volume. Audio is stored separately in R2 and synchronized during playback.
 - Media requests support byte ranges.
 - Expiry blocks entry retrieval and media access; it does not physically delete stored records or objects.
 
