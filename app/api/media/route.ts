@@ -1,3 +1,4 @@
+import {mirror} from '../../../lib/bridge';
 import {isOwner,rejectWrite} from '../../../lib/access';
 import {published} from '../../../lib/visibility';
 import {env} from 'cloudflare:workers';
@@ -16,6 +17,7 @@ export async function POST(req:Request){
   if(kind==='profile'&&!type.startsWith('image/'))return new Response('Profile photos must be images.',{status:400});
   const duration=lifetime(kind);const supplied=req.headers.get('x-upload-created');const created=supplied?Date.parse(supplied):Date.now();if(!Number.isFinite(created)||created>Date.now()+60000)return new Response('Invalid media date.',{status:400});const key=crypto.randomUUID();
   await env.BUCKET.put(key,req.body,{httpMetadata:{contentType:type},customMetadata:{kind,expiresAt:duration?String(created+duration):''}});
+  const saved=env.PRISHSTAR_SYNC_TARGET?await env.BUCKET.get(key):null;if(saved)await mirror('/api/bridge?media='+key,{method:'POST',headers:{'Content-Type':type,'X-Upload-Size':String(saved.size)},body:saved.body});
   return Response.json({url:'/api/media?id='+key,type});
 }
 export async function GET(req:Request){
