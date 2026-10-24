@@ -1,71 +1,102 @@
 # PrishStar
 
-**Embracing my evil.**
-
-A black-and-pink, starry journal about rage, defiance, and catharsis. Built for Prisha Srivastava.
-
-## Features
-
-- Editable profile and profile photo
-- My Column: long-form posts with optional links to externally published articles
-- Weekly updates and stories that expire after 24 hours
-- Feed posts with image and video uploads, visible for seven days
-- Editable retro reminder window that stays until changed
-- Three catharsis lists and a bookshelf
-- JSON export of journal records
+[Live application](https://prishstar.srivastavaprisha29.workers.dev/)
 
 ## Stack
 
-React 19, TypeScript, Vinext, Vite, Cloudflare Workers, D1 (SQLite via Drizzle), and R2 object storage.
+- React 19, TypeScript, Vinext, Vite
+- Cloudflare Workers
+- Cloudflare D1 (SQLite), Drizzle ORM
+- Cloudflare R2
+- GitHub Actions
 
-Videos have no imposed duration limit. Uploads are limited to 95 MB. Playback depends on browser codec support; MP4 is recommended. Expiry removes stories and feed posts from retrieval and disables their media URLs. It is not a scheduled physical deletion of storage objects. Older database rows can remain stored.
+## Architecture
 
-## Local development
+`worker/index.ts` handles requests through Vinext. API routes store entry metadata in D1 and media objects in R2.
 
-Use Node.js 22.13 or newer and the pnpm version declared in package.json.
+| Path | Responsibility |
+| --- | --- |
+| `app/page.tsx` | Profile, stories, feed, journal, lists, reminders |
+| `app/api/entries/` | Entry retrieval, creation, publication, deletion |
+| `app/api/media/` | Uploads and byte-range media delivery |
+| `app/api/owner/` | Owner authentication and logout |
+| `app/api/session/` | Session status |
+| `app/api/archive/` | Content export and import |
+| `app/api/bridge/` | Authenticated cross-deployment transfer |
+| `db/schema.ts` | Entry and login-attempt schemas |
+| `drizzle/` | SQL migrations |
+| `lib/` | Authorization, sessions, visibility, expiry, transfer |
+| `scripts/` | Build, provisioning, deployment, verification |
+
+## Content and media
+
+Stories and feed posts publish on submission. Owners can unpublish or delete entries. Other entry types use an explicit publication setting.
+
+- Stories expire after 24 hours.
+- Feed posts expire after seven days.
+- Upload limit: 95 MB per file; no application-level video duration limit.
+- Formats: JPEG, PNG, WebP, GIF, MP4, WebM, MOV, Ogg video.
+- Playback depends on browser codec support.
+- Media requests support byte ranges.
+- Expiry blocks entry retrieval and media access; it does not physically delete stored records or objects.
+
+## Authentication
+
+The standalone deployment uses eight-hour signed owner sessions. Cookies use `Secure`, `HttpOnly`, and `SameSite=Strict`. Mutation routes enforce owner authorization and same-origin checks. Login attempts are rate-limited.
+
+Public requests return published, unexpired entries and their associated media. Changing the owner password invalidates existing sessions.
+
+The original hosting integration uses managed identity and `PRISHSTAR_OWNER_EMAIL`.
+
+## Development
+
+Requires Node.js 22.13+ and pnpm 11.25.0.
 
 ```sh
 corepack enable
 pnpm install --frozen-lockfile
 pnpm run build
-node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0000_slimy_spectrum.sql
 pnpm run dev
 ```
 
-Apply the initial migration once per local database. Future schema changes require a new migration (`pnpm run db:generate`). Never edit an already applied migration. Local databases and uploads are separate from production.
+Local D1 schema initialization:
 
-## Deploy from GitHub to your Cloudflare account
+```sh
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0000_slimy_spectrum.sql
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0001_lucky_harrier.sql
+```
 
-The `Deploy PrishStar to Cloudflare` GitHub Actions workflow deploys this application without installing the Cloudflare GitHub App. It runs on pushes to main when credentials are configured, and can also be started manually.
+Generate schema migrations with `pnpm run db:generate`. Local storage is separate from production.
 
-1. In Cloudflare, enable R2 for the account if you have not already done so. Choose a Workers subdomain if your account has none. Any billing setup remains your choice; the workflow does not enable R2 billing for you.
-2. Create a scoped Cloudflare API token for this account with **Workers Scripts: Edit**, **D1: Edit**, **Workers R2 Storage: Edit**, and **Account Settings: Read** permissions. Do not use a Global API Key.
-3. In this repository, open **Settings → Secrets and variables → Actions → New repository secret** and add:
+## Deployment
 
-| Secret | Value |
+`.github/workflows/deploy-cloudflare.yml` runs on pushes to `main` and manual dispatch.
+
+Repository secrets:
+
+| Secret | Purpose |
 | --- | --- |
-| `CLOUDFLARE_API_TOKEN` | Your scoped Cloudflare API token |
-| `CLOUDFLARE_ACCOUNT_ID` | Your 32-character Cloudflare account ID |
-| `PRISHSTAR_ADMIN_PASSWORD` | A unique, randomly generated owner password of at least 20 characters |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account identifier |
+| `CLOUDFLARE_API_TOKEN` | Scoped provisioning and deployment token |
+| `PRISHSTAR_ADMIN_PASSWORD` | Owner password, minimum 20 characters |
 
-4. Open **Actions → Deploy PrishStar to Cloudflare → Run workflow** on `main`.
-5. When deployment completes successfully, the workflow summary provides the verified `workers.dev` live URL. Share that URL and the GitHub repository URL on LinkedIn. No live URL exists for this deployment until that run succeeds.
-6. Visit `/owner` on your new live site and use the owner password to sign in. Check **Publish to visitors** when saving an entry, or use its **publish** control afterward. Existing private entries remain private.
+The API token requires Workers Scripts Edit, D1 Edit, Workers R2 Storage Edit, and Account Settings Read. R2 and a Workers subdomain must be enabled.
 
-The workflow creates or reuses `prishstar-db` (D1) and `prishstar-media` (R2), applies migrations, builds the standalone Worker, and deploys it. It then installs the owner password as a Cloudflare runtime secret and checks the public homepage, reader role, and blocked anonymous writes. Run summaries do not contain the token or password. Keep the token and password in encrypted GitHub secrets only; never paste them into chat or commit them.
+The pipeline provisions `prishstar-db` and `prishstar-media`, builds with `vite.cloudflare.config.ts`, applies migrations, deploys the Worker, installs runtime secrets, and runs live API checks. Owner login is at `/owner`.
 
-This creates a separate database and media bucket in your account. Existing entries and uploads on the original Sites host are not migrated automatically. The original Sites integration remains supported by the default Vite configuration, while `vite.cloudflare.config.ts` produces the independent Cloudflare build. GitHub Pages cannot run these server routes.
+The default Vite configuration supports the original hosting integration. The standalone configuration targets the independent Cloudflare deployment.
 
-## Access control
+### Cross-deployment transfer
 
-Public visitors can only retrieve explicitly published, unexpired entries and their associated media. The standalone host uses an eight-hour signed owner session cookie with Secure, HttpOnly, and SameSite=Strict flags, server-side authorization, same-origin mutation checks, and login attempt limits. Changing the owner password invalidates existing sessions. Standalone deployments ignore incoming ChatGPT identity headers.
+The source host uses `PRISHSTAR_SYNC_SECRET` and `PRISHSTAR_SYNC_TARGET` to mirror uploads and entry changes to the standalone host. Both hosts authenticate bridge requests with the shared secret.
 
-The original Sites host can continue to use its hosting-managed identity with the `PRISHSTAR_OWNER_EMAIL` runtime secret. No owner credentials are committed to this repository.
-
-## Data and secrets
-
-Never commit credentials, `.env` files, `.dev.vars`, `.wrangler` state, journal exports, or personal uploads. Database backups and media backups need separate storage. The UI's JSON export includes media URLs, not the image files themselves.
+`scripts/source-bridge.mjs` decrypts `.openai/bridge.encrypted` using a private key stored in R2. `scripts/source-migrate.mjs` performs the initial transfer, preserves entry timestamps, and verifies public story/feed media. An R2 completion marker prevents repeated migration.
 
 ## Verification
 
-The application builds successfully. A local journal entry was saved and restored after reload. Automated browser and API coverage should be added as the application grows; there is no claim of a completed public-launch security review.
+```sh
+node --experimental-strip-types --test tests/owner-session.test.mjs
+pnpm run build
+```
+
+Deployment checks cover anonymous access restrictions, owner login, uploads, immediate story/feed publication, public media access, unpublishing, and deletion. Verification entries are removed after the checks.
