@@ -14,8 +14,8 @@ export async function POST(req:Request){
   if(!TYPES.has(type)||!['photo','story','profile'].includes(kind)||!req.body||!Number.isFinite(size)||size<=0||size>MAX)
     return new Response('Choose a supported image or video up to 95 MB.',{status:400});
   if(kind==='profile'&&!type.startsWith('image/'))return new Response('Profile photos must be images.',{status:400});
-  const duration=lifetime(kind);const key=crypto.randomUUID();
-  await env.BUCKET.put(key,req.body,{httpMetadata:{contentType:type},customMetadata:{kind,expiresAt:duration?String(Date.now()+duration):''}});
+  const duration=lifetime(kind);const supplied=req.headers.get('x-upload-created');const created=supplied?Date.parse(supplied):Date.now();if(!Number.isFinite(created)||created>Date.now()+60000)return new Response('Invalid media date.',{status:400});const key=crypto.randomUUID();
+  await env.BUCKET.put(key,req.body,{httpMetadata:{contentType:type},customMetadata:{kind,expiresAt:duration?String(created+duration):''}});
   return Response.json({url:'/api/media?id='+key,type});
 }
 export async function GET(req:Request){
