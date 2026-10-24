@@ -45,6 +45,9 @@ jobs:
       - name: Prepare database and media storage
         if: steps.config.outputs.ready == 'true'
         run: node scripts/cloudflare-setup.mjs
+      - name: Prepare automatic source bridge
+        if: steps.config.outputs.ready == 'true'
+        run: node scripts/source-bridge.mjs
       - name: Build standalone application
         if: steps.config.outputs.ready == 'true'
         run: pnpm exec vite build --config vite.cloudflare.config.ts
